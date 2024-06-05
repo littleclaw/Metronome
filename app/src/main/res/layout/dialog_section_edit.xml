@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+        <import type="android.view.View"/>
+        <variable
+            name="m"
+            type="com.lttclaw.metronome.viewmodel.SectionViewModel" />
+    </data>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="48dp"
+        android:paddingBottom="48dp">
+
+        <TextView
+            android:id="@+id/tv_length"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="两次间隔（单位毫秒）"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="两次间隔（单位毫秒）" />
+
+        <EditText
+            android:id="@+id/et_length"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:inputType="numberDecimal"
+            android:layout_marginStart="16dp"
+            android:hint="请输入节拍间隔"
+            android:text="@={m.length}"
+            app:layout_constraintBottom_toBottomOf="@+id/tv_length"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/tv_length"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tv_repeat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="输入小节节拍数"
+            android:layout_marginTop="48dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_length"
+            tools:text="输入小节节拍数" />
+        <EditText
+            android:id="@+id/et_repeat"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:hint="请输入节拍数"
+            android:inputType="numberDecimal"
+            android:text="@={m.repeatNum}"
+            app:layout_constraintStart_toStartOf="@id/et_length"
+            app:layout_constraintTop_toTopOf="@id/tv_repeat"
+            app:layout_constraintBottom_toBottomOf="@id/tv_repeat"/>
+
+        <TextView
+            android:id="@+id/tv_delay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="节后休息时长（单位毫秒）"
+            android:layout_marginTop="48dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_repeat"
+            tools:text="节后休息时长（单位毫秒）" />
+        <EditText
+            android:id="@+id/et_delay"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:hint="输入延迟时间"
+            android:text="@={m.delay}"
+            android:inputType="numberDecimal"
+            app:layout_constraintStart_toStartOf="@id/et_length"
+            app:layout_constraintTop_toTopOf="@id/tv_delay"
+            app:layout_constraintBottom_toBottomOf="@id/tv_delay"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>

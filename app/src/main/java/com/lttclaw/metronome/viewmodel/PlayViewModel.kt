@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.blankj.utilcode.util.GsonUtils
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.SPUtils
+import com.blankj.utilcode.util.ToastUtils
 import com.lttclaw.metronome.model.Section
 import kotlinx.coroutines.launch
 import me.hgj.jetpackmvvm.base.viewmodel.BaseViewModel
@@ -57,6 +58,16 @@ class PlayViewModel: BaseViewModel() {
                     it.setSpeechRate(1f)
                 }
             }
+        }
+    }
+
+    fun reloadSavedList():List<Section> {
+        val spInstance = SPUtils.getInstance()
+        val listData = spInstance.getString(SP_KEY, "")
+        return if(listData.isEmpty()){
+            emptyList()
+        }else{
+            GsonUtils.fromJson(listData, GsonUtils.getListType(Section::class.java))
         }
     }
 
@@ -109,6 +120,16 @@ class PlayViewModel: BaseViewModel() {
         curSectionIndex.value = 0
     }
 
+    fun pause(){
+        ToastUtils.showShort("暂未实现")
+    }
+
+    fun destroy(){
+        text2Speech?.also {
+            it.stop()
+            it.shutdown()
+        }
+    }
     private fun speak(s:String){
         text2Speech?.also {
             val bundle = bundleOf(TextToSpeech.Engine.KEY_PARAM_VOLUME to 1f)

@@ -38,6 +38,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:enabled="@{vm.playing}"
             android:text="暂停"/>
         <TextView
             android:layout_marginTop="16dp"
@@ -55,10 +56,12 @@
             tools:text="12"
             android:text="@{String.valueOf(vm.curPlayingIndex)}"/>
         <Button
+            android:id="@+id/btn_go_setting"
             android:layout_marginTop="16dp"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             style="@style/Widget.AppCompat.Button.Small"
+            android:enabled="@{!vm.playing}"
             android:text="编辑小节配置"/>
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rv_play"
