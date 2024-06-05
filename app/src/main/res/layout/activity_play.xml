@@ -39,7 +39,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:enabled="@{vm.playing}"
-            android:text="暂停"/>
+            tools:text="暂停"
+            android:text="@{vm.pauseBtnText}"/>
         <TextView
             android:layout_marginTop="16dp"
             android:layout_width="wrap_content"

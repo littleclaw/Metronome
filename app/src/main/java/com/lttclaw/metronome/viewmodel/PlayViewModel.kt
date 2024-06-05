@@ -18,6 +18,8 @@ import me.hgj.jetpackmvvm.base.viewmodel.BaseViewModel
 import java.util.Locale
 
 const val SP_KEY = "listData"
+const val PAUSE = "暂停"
+const val RESUME = "继续"
 class PlayViewModel: BaseViewModel() {
     private val playList = mutableListOf<Section>()
     private var timer: CountDownTimer? = null
@@ -25,6 +27,7 @@ class PlayViewModel: BaseViewModel() {
     val playing = ObservableBoolean(false)
     val curPlayingIndex = MutableLiveData(0)
     val curSectionIndex = MutableLiveData(0)
+    val pauseBtnText = MutableLiveData("暂停")
     private var text2Speech: TextToSpeech? = null
     fun initSectionList(): List<Section>{
         val spInstance = SPUtils.getInstance()
@@ -32,8 +35,8 @@ class PlayViewModel: BaseViewModel() {
         return if(listData.isEmpty()){
             val list = mutableListOf<Section>()
             val s1 = Section(11, 4000L, 7000L)
-            val s2 = Section(12, 5000L, 10000L)
-            val s3 = Section(12, 3000L, 0)
+            val s2 = Section(12, 5000L, 8000L)
+            val s3 = Section(12, 3000L, 1000)
             list.add(s1)
             list.add(s2)
             list.add(s3)
@@ -73,32 +76,36 @@ class PlayViewModel: BaseViewModel() {
 
     fun play(rvList: List<Section>, start:Int = 0){
         playList.clear()
-        playList.addAll(rvList.slice(start..rvList.size))
+        playList.addAll(rvList.slice(start..<rvList.size))
+        LogUtils.d("playList size:"+playList.size)
         if (playList.size > 0){
             val current = playList[0]
             curSectionIndex.value = 0
-            curPlayingIndex.value = 1
+            curPlayingIndex.value = 0
             playing.set(true)
             playSection(current)
         }
     }
 
     private fun playSection(current: Section) {
+        LogUtils.d("repeat:"+current.repeatNum, "length:"+current.length, "delay:"+current.delay)
         timer = object : CountDownTimer(current.repeatNum * current.length, current.length) {
             override fun onTick(millisUntilFinished: Long) {
-                speak(curPlayingIndex.value.toString())
                 curPlayingIndex.value = curPlayingIndex.value!! + 1
+                speak(curPlayingIndex.value.toString())
             }
 
             override fun onFinish() {
                 curPlayingIndex.value = 0
-                speak("好棒棒，你完成第${curSectionIndex.value!!+1}节")
+                speak("好棒哦，你完成了第${curSectionIndex.value!!+1}节")
                 delayTimer = object : CountDownTimer(current.delay, current.delay / 2) {
                     override fun onTick(p0: Long) {
                     }
                     override fun onFinish() {
-                        if (curSectionIndex.value == playList.size) {
+                        if (curSectionIndex.value!! >= playList.size) {
                             playing.set(false)
+                            curPlayingIndex.value = 0
+                            curSectionIndex.value = 0
                         } else {
                             curSectionIndex.value = curSectionIndex.value!! + 1
                             val next = playList[curSectionIndex.value!!]
@@ -116,12 +123,37 @@ class PlayViewModel: BaseViewModel() {
         playing.set(false)
         timer?.cancel()
         delayTimer?.cancel()
-        curPlayingIndex.value = 1
+        curPlayingIndex.value = 0
         curSectionIndex.value = 0
     }
 
-    fun pause(){
-        ToastUtils.showShort("暂未实现")
+    fun pauseResume(){
+        if (pauseBtnText.value == PAUSE){
+            timer?.cancel()
+            delayTimer?.cancel()
+            pauseBtnText.value = RESUME
+        }else{
+            pauseBtnText.value = PAUSE
+            val playIndex = curPlayingIndex.value!!
+            val sectionIndex = curSectionIndex.value!!
+            val curSection = playList[sectionIndex]
+            val remainingNum = curSection.repeatNum - playIndex
+            if (remainingNum > 0){
+                val partialSection = Section(remainingNum, curSection.length, curSection.delay)
+                playSection(partialSection)
+            }else{
+                curPlayingIndex.value = 0
+                curSectionIndex.value = playIndex + 1
+                val nextIndex = curSectionIndex.value!!
+                if(nextIndex < playList.size){
+                    val next = playList[nextIndex]
+                    playSection(next)
+                }else{
+                    speak("好棒哦，你完成了第${curSectionIndex.value!!+1}节")
+                    playing.set(false)
+                }
+            }
+        }
     }
 
     fun destroy(){

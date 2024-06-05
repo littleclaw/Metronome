@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
 import com.drake.brv.utils.divider
+import com.drake.brv.utils.models
 import com.drake.brv.utils.setDifferModels
 import com.drake.brv.utils.setup
 import com.lttclaw.metronome.R
@@ -22,7 +23,22 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
         }
 
     override fun createObserver() {
-        //
+        mViewModel.curSectionIndex.observe(this){ position->
+            if(position >= 0){
+                val adapter = mDatabind.rvPlay.adapter
+                val listData = mDatabind.rvPlay.models as MutableList<Section>
+                val oldPlaying = listData.find {
+                    it.playing
+                }
+                val oldPlayingIndex = listData.indexOf(oldPlaying)
+                if(oldPlayingIndex != -1 && oldPlayingIndex != position){
+                    listData[oldPlayingIndex].playing = false
+                    adapter!!.notifyItemChanged(oldPlayingIndex)
+                }
+                listData[position].playing = true
+                adapter!!.notifyItemChanged(position)
+            }
+        }
     }
 
     override fun dismissLoading() {
@@ -38,18 +54,20 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
         mViewModel.initText2Speech(baseContext)
 
         mDatabind.btnStart.setOnClickListener {
-            mViewModel.play(rvData)
+            val listData = mDatabind.rvPlay.models as List<Section>
+            mViewModel.play(listData)
         }
         mDatabind.btnStop.setOnClickListener {
             mViewModel.stop()
         }
         mDatabind.btnPause.setOnClickListener {
-            mViewModel.pause()
+            mViewModel.pauseResume()
         }
         mDatabind.btnGoSetting.setOnClickListener {
             val intent = Intent(this, SectionListActivity::class.java)
             requestDataLauncher.launch(intent)
         }
+        mDatabind.vm = mViewModel
     }
 
     override fun showLoading(message: String) {

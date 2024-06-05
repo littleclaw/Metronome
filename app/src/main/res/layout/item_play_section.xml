@@ -21,7 +21,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             tools:text="两次间隔7秒"
-            android:text="@{`两次间隔`+String.valueOf(m.length/1000)+`秒`}"/>
+            android:text="@{`两次间隔:`+String.valueOf(m.length/1000)+`秒`}"/>
         <TextView
             android:id="@+id/tv_repeat"
             android:layout_width="wrap_content"
