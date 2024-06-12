@@ -3,6 +3,7 @@ package com.lttclaw.metronome.ui
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
+import com.blankj.utilcode.util.LogUtils
 import com.drake.brv.utils.divider
 import com.drake.brv.utils.models
 import com.drake.brv.utils.setDifferModels
@@ -22,6 +23,20 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
             }
         }
 
+    private val requestPickMusicLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()){ activityResult ->
+        if(activityResult.resultCode == RESULT_OK){
+            activityResult.data?.data?.let {
+                mViewModel.setBgUri(baseContext, it)
+                LogUtils.d("bg music set", it.toString())
+            }
+            activityResult.data?.extras?.let {
+                val name = it.getString("name")
+                val duration = it.getInt("duration")
+                mViewModel.curMusicName.value = name
+                LogUtils.d(name, duration)
+            }
+        }
+    }
     override fun createObserver() {
         mViewModel.curSectionIndex.observe(this){ position->
             if(position >= 0){
@@ -66,6 +81,10 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
         mDatabind.btnGoSetting.setOnClickListener {
             val intent = Intent(this, SectionListActivity::class.java)
             requestDataLauncher.launch(intent)
+        }
+        mDatabind.btnBgSetting.setOnClickListener {
+            val intent = Intent(this, SelectMusicActivity::class.java)
+            requestPickMusicLauncher.launch(intent)
         }
         mDatabind.vm = mViewModel
     }

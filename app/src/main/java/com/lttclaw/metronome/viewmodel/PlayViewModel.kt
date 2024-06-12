@@ -1,6 +1,9 @@
 package com.lttclaw.metronome.viewmodel
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.CountDownTimer
 import android.speech.tts.TextToSpeech
 import android.widget.Toast
@@ -11,7 +14,6 @@ import androidx.lifecycle.viewModelScope
 import com.blankj.utilcode.util.GsonUtils
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.SPUtils
-import com.blankj.utilcode.util.ToastUtils
 import com.lttclaw.metronome.model.Section
 import kotlinx.coroutines.launch
 import me.hgj.jetpackmvvm.base.viewmodel.BaseViewModel
@@ -24,10 +26,12 @@ class PlayViewModel: BaseViewModel() {
     private val playList = mutableListOf<Section>()
     private var timer: CountDownTimer? = null
     private var delayTimer: CountDownTimer ? =null
+    private var mediaPlayer: MediaPlayer? = null
     val playing = ObservableBoolean(false)
     val curPlayingIndex = MutableLiveData(0)
     val curSectionIndex = MutableLiveData(0)
     val pauseBtnText = MutableLiveData("暂停")
+    val curMusicName = MutableLiveData("无")
     private var text2Speech: TextToSpeech? = null
     fun initSectionList(): List<Section>{
         val spInstance = SPUtils.getInstance()
@@ -64,6 +68,30 @@ class PlayViewModel: BaseViewModel() {
         }
     }
 
+    fun setBgUri(context: Context, uri: Uri){
+        if(mediaPlayer == null){
+            mediaPlayer = MediaPlayer().apply {
+                val audioAttribute = AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+                setAudioAttributes(audioAttribute)
+                setDataSource(context, uri)
+                isLooping = true
+                setOnCompletionListener {
+                    LogUtils.d("play complete!!")
+                }
+                prepare()
+                setVolume(0.5f, 0.5f)
+            }
+        }else{
+            mediaPlayer?.apply {
+                setDataSource(context, uri)
+                prepare()
+                setVolume(0.5f, 0.5f)
+            }
+        }
+    }
+
     fun reloadSavedList():List<Section> {
         val spInstance = SPUtils.getInstance()
         val listData = spInstance.getString(SP_KEY, "")
@@ -84,6 +112,7 @@ class PlayViewModel: BaseViewModel() {
             curPlayingIndex.value = 0
             playing.set(true)
             playSection(current)
+            mediaPlayer?.start()
         }
     }
 
@@ -125,6 +154,7 @@ class PlayViewModel: BaseViewModel() {
         delayTimer?.cancel()
         curPlayingIndex.value = 0
         curSectionIndex.value = 0
+        mediaPlayer?.stop()
     }
 
     fun pauseResume(){
@@ -132,8 +162,10 @@ class PlayViewModel: BaseViewModel() {
             timer?.cancel()
             delayTimer?.cancel()
             pauseBtnText.value = RESUME
+            mediaPlayer?.start()
         }else{
             pauseBtnText.value = PAUSE
+            mediaPlayer?.pause()
             val playIndex = curPlayingIndex.value!!
             val sectionIndex = curSectionIndex.value!!
             val curSection = playList[sectionIndex]
@@ -161,6 +193,7 @@ class PlayViewModel: BaseViewModel() {
             it.stop()
             it.shutdown()
         }
+        mediaPlayer?.release()
     }
     private fun speak(s:String){
         text2Speech?.also {

@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">节拍器</string>
+    <string name="ok">确定</string>
+    <string name="cancel">取消</string>
+    <string name="cur_selection">当前选择</string>
 </resources>
