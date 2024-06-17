@@ -15,8 +15,13 @@ import com.blankj.utilcode.util.GsonUtils
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.SPUtils
 import com.lttclaw.metronome.model.Section
+import com.lttclaw.metronome.model.Version
+import com.lttclaw.metronome.network.apiService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import me.hgj.jetpackmvvm.base.viewmodel.BaseViewModel
+import me.hgj.jetpackmvvm.ext.request
+import me.hgj.jetpackmvvm.state.ResultState
 import java.util.Locale
 
 const val SP_KEY = "listData"
@@ -33,6 +38,8 @@ class PlayViewModel: BaseViewModel() {
     val pauseBtnText = MutableLiveData("暂停")
     val curMusicName = MutableLiveData("无")
     private var text2Speech: TextToSpeech? = null
+
+    val versionResult = MutableLiveData<ResultState<Version>>()
     fun initSectionList(): List<Section>{
         val spInstance = SPUtils.getInstance()
         val listData = spInstance.getString(SP_KEY, "")
@@ -119,6 +126,7 @@ class PlayViewModel: BaseViewModel() {
     private fun playSection(current: Section) {
         LogUtils.d("repeat:"+current.repeatNum, "length:"+current.length, "delay:"+current.delay)
         timer = object : CountDownTimer(current.repeatNum * current.length, current.length) {
+
             override fun onTick(millisUntilFinished: Long) {
                 curPlayingIndex.value = curPlayingIndex.value!! + 1
                 speak(curPlayingIndex.value.toString())
@@ -145,7 +153,11 @@ class PlayViewModel: BaseViewModel() {
                 delayTimer!!.start()
             }
         }
-        timer!!.start()
+        launch {
+            speak("做好准备，下一小节就要开始了")
+            delay(5000)
+            timer!!.start()
+        }
     }
 
     fun stop(){
@@ -155,6 +167,7 @@ class PlayViewModel: BaseViewModel() {
         curPlayingIndex.value = 0
         curSectionIndex.value = 0
         mediaPlayer?.stop()
+        mediaPlayer = null
     }
 
     fun pauseResume(){
@@ -162,10 +175,10 @@ class PlayViewModel: BaseViewModel() {
             timer?.cancel()
             delayTimer?.cancel()
             pauseBtnText.value = RESUME
-            mediaPlayer?.start()
+            mediaPlayer?.pause()
         }else{
             pauseBtnText.value = PAUSE
-            mediaPlayer?.pause()
+            mediaPlayer?.start()
             val playIndex = curPlayingIndex.value!!
             val sectionIndex = curSectionIndex.value!!
             val curSection = playList[sectionIndex]
@@ -195,6 +208,10 @@ class PlayViewModel: BaseViewModel() {
         }
         mediaPlayer?.release()
     }
+
+    fun checkVersion(){
+        request({ apiService.getVersion()}, versionResult)
+    }
     private fun speak(s:String){
         text2Speech?.also {
             val bundle = bundleOf(TextToSpeech.Engine.KEY_PARAM_VOLUME to 1f)
@@ -202,12 +219,12 @@ class PlayViewModel: BaseViewModel() {
         }
     }
 
-    fun <T> launch(block: suspend () -> T) {
+    private fun <T> launch(block: suspend () -> T) {
         viewModelScope.launch {
             runCatching {
                 block()
-            }.onFailure {
-                it.message?.let {
+            }.onFailure { throwable ->
+                throwable.message?.let {
                     LogUtils.d(it)
                 }
             }
