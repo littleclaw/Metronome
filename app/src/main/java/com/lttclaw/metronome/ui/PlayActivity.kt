@@ -37,15 +37,15 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
 
     private val requestPickMusicLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()){ activityResult ->
         if(activityResult.resultCode == RESULT_OK){
-            activityResult.data?.data?.let {
-                mViewModel.setBgUri(baseContext, it)
-                LogUtils.d("bg music set", it.toString())
-            }
             activityResult.data?.extras?.let {
                 val name = it.getString("name")
                 val duration = it.getInt("duration")
                 mViewModel.curMusicName.value = name
                 LogUtils.d(name, duration)
+            }
+            activityResult.data?.data?.let {
+                mViewModel.setBgUri(baseContext, it)
+                LogUtils.d("bg music set", it.toString())
             }
         }
     }
@@ -91,6 +91,7 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
 
     override fun initView(savedInstanceState: Bundle?) {
         val rvData = mViewModel.initSectionList()
+        mViewModel.initBgMusic(this)
         mDatabind.rvPlay.divider(R.drawable.divider_horizontal)
             .setup {
                 addType<Section>(R.layout.item_play_section)
@@ -99,8 +100,11 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
         mViewModel.initText2Speech(baseContext)
 
         mDatabind.btnStart.setOnClickListener {
-            val listData = mDatabind.rvPlay.models as List<Section>
-            mViewModel.play(listData)
+            val models = mDatabind.rvPlay.models
+            if(models is List<*>){
+                val listData = models as List<*>
+                mViewModel.play(listData as List<Section>)
+            }
         }
         mDatabind.btnStop.setOnClickListener {
             mViewModel.stop()
@@ -113,22 +117,37 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
             requestDataLauncher.launch(intent)
         }
         mDatabind.btnBgSetting.setOnClickListener {
-            PermissionX.init(this)
-                .permissions(Manifest.permission.READ_EXTERNAL_STORAGE)
-                .onExplainRequestReason { scope, deniedList ->
-                    scope.showRequestReasonDialog(deniedList, "需要读取手机储存的音乐文件", "确定", "取消")
-                }
-                .onForwardToSettings { scope, deniedList ->
-                    scope.showForwardToSettingsDialog(deniedList, "需要手动授权，点确认跳转设置页", "确认", "取消")
-                }
-                .request { allGranted, _, _ ->
-                    if (allGranted) {
+            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
+                PermissionX.init(this)
+                    .permissions(Manifest.permission.READ_MEDIA_AUDIO)
+                    .onExplainRequestReason { scope, deniedList ->
+                        scope.showRequestReasonDialog(deniedList, "需要读取手机储存的音乐文件", "确定", "取消")
+                    }
+                    .onForwardToSettings { scope, deniedList ->
+                        scope.showForwardToSettingsDialog(deniedList, "需要手动授权，点确认跳转设置页", "确认", "取消")
+                    }
+                    .request { allGranted, _, _ ->
+                        if (allGranted) {
+                            val intent = Intent(this, SelectMusicActivity::class.java)
+                            requestPickMusicLauncher.launch(intent)
+                        } else {
+                            ToastUtils.showLong("未授权读储存权限，无法读取手机音乐")
+                        }
+                    }
+            }else {
+                PermissionX.init(this)
+                    .permissions(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    .onExplainRequestReason { scope, deniedList ->
+                        scope.showRequestReasonDialog(deniedList, "需要读取手机储存的音乐文件", "确定", "取消")
+                    }
+                    .onForwardToSettings { scope, deniedList ->
+                        scope.showForwardToSettingsDialog(deniedList, "需要手动授权，点确认跳转设置页", "确认", "取消")
+                    }
+                    .request { _, _, _ ->
                         val intent = Intent(this, SelectMusicActivity::class.java)
                         requestPickMusicLauncher.launch(intent)
-                    } else {
-                        ToastUtils.showLong("未授权读储存权限，无法读取手机音乐")
                     }
-                }
+            }
         }
         mViewModel.checkVersion()
         mDatabind.vm = mViewModel

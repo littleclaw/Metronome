@@ -25,6 +25,8 @@ import me.hgj.jetpackmvvm.state.ResultState
 import java.util.Locale
 
 const val SP_KEY = "listData"
+const val SP_BG_URI = "bgUri"
+const val SP_BG_NAME = "bgName"
 const val PAUSE = "暂停"
 const val RESUME = "继续"
 class PlayViewModel: BaseViewModel() {
@@ -55,6 +57,18 @@ class PlayViewModel: BaseViewModel() {
             list
         }else {
             GsonUtils.fromJson(listData, GsonUtils.getListType(Section::class.java))
+        }
+    }
+
+    fun initBgMusic(context: Context){
+        val spInstance = SPUtils.getInstance()
+        val bgUriStr = spInstance.getString(SP_BG_URI)
+        if(bgUriStr.isNotEmpty()){
+            setBgUri(context, Uri.parse(bgUriStr))
+        }
+        val bgName = spInstance.getString(SP_BG_NAME)
+        if (bgName.isNotEmpty()){
+            curMusicName.value = bgName
         }
     }
 
@@ -97,6 +111,13 @@ class PlayViewModel: BaseViewModel() {
                 setVolume(0.5f, 0.5f)
             }
         }
+        saveBgSetting(uri)
+    }
+
+    private fun saveBgSetting(uri: Uri) {
+        val spInstance = SPUtils.getInstance()
+        spInstance.put(SP_BG_URI, uri.toString())
+        spInstance.put(SP_BG_NAME, curMusicName.value)
     }
 
     fun reloadSavedList():List<Section> {
