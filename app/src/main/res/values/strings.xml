@@ -3,4 +3,5 @@
     <string name="ok">确定</string>
     <string name="cancel">取消</string>
     <string name="cur_selection">当前选择</string>
+    <string name="batch_edit">改次数</string>
 </resources>

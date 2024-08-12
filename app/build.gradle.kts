@@ -69,6 +69,7 @@ dependencies {
     implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
 
     implementation("com.blankj:utilcodex:1.31.1")
+    implementation("com.afollestad.material-dialogs:input:3.3.0")
     implementation("com.github.hegaojian:JetpackMvvm:1.2.7")
     implementation("com.afollestad.material-dialogs:core:3.3.0")
     implementation("com.github.liangjingkanji:BRV:1.5.8")

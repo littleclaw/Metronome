@@ -12,7 +12,7 @@ dependencyResolutionManagement {
         maven("https://maven.aliyun.com/repository/google")
         google()
         mavenCentral()
-        maven("https://jitpack.io")
+        maven("https://www.jitpack.io")
     }
 }
 

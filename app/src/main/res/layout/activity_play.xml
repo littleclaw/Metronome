@@ -36,17 +36,29 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
+
             <Button
                 android:id="@+id/btn_pause"
                 android:layout_width="100dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:enabled="@{vm.playing}"
-                tools:text="暂停"
-                app:layout_constraintTop_toTopOf="parent"
+                android:text="@{vm.pauseBtnText}"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                android:text="@{vm.pauseBtnText}"/>
+                app:layout_constraintTop_toTopOf="parent"
+                tools:text="暂停" />
+
+            <Button
+                android:id="@+id/btn_batch_edit"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="@string/batch_edit"
+                android:backgroundTint="@color/warning"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/tv_currentBgMusic"
+                app:layout_constraintStart_toEndOf="@id/btn_pause"
+                app:layout_constraintTop_toTopOf="@+id/btn_pause" />
 
             <TextView
                 android:id="@+id/tv_currentBgMusic"
@@ -55,8 +67,7 @@
                 android:text="@{`当前背景音乐:`+vm.curMusicName}"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.908"
-                app:layout_constraintStart_toEndOf="@+id/btn_pause"
+                app:layout_constraintStart_toEndOf="@+id/btn_batch_edit"
                 app:layout_constraintTop_toTopOf="@+id/btn_pause"
                 tools:text="暂未设置背景音乐" />
         </androidx.constraintlayout.widget.ConstraintLayout>

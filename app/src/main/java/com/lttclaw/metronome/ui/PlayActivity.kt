@@ -1,11 +1,15 @@
 package com.lttclaw.metronome.ui
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.text.InputType
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.input.input
 import com.azhon.appupdate.manager.DownloadManager
 import com.blankj.utilcode.util.GsonUtils
 import com.blankj.utilcode.util.LogUtils
@@ -21,6 +25,8 @@ import com.lttclaw.metronome.viewmodel.PlayViewModel
 import com.permissionx.guolindev.PermissionX
 import me.hgj.jetpackmvvm.base.activity.BaseVmDbActivity
 import me.hgj.jetpackmvvm.ext.parseState
+import me.hgj.jetpackmvvm.ext.view.clickNoRepeat
+import java.lang.Integer.parseInt
 
 class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
     companion object{
@@ -89,6 +95,7 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
     override fun dismissLoading() {
     }
 
+    @SuppressLint("CheckResult")
     override fun initView(savedInstanceState: Bundle?) {
         val rvData = mViewModel.initSectionList()
         mViewModel.initBgMusic(this)
@@ -111,6 +118,19 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
         }
         mDatabind.btnPause.setOnClickListener {
             mViewModel.pauseResume()
+        }
+        mDatabind.btnBatchEdit.clickNoRepeat {
+            MaterialDialog(this).show {
+                input(hint = "输入新的次数", prefill = "25", inputType = InputType.TYPE_CLASS_NUMBER){
+                        _, text ->
+                    val models = mDatabind.rvPlay.models as List<Section>
+                    models.forEach {
+                        it.repeatNum = parseInt(text.toString())
+                    }
+                    mDatabind.rvPlay.models = models
+                }
+                positiveButton(res = R.string.ok)
+            }
         }
         mDatabind.btnGoSetting.setOnClickListener {
             val intent = Intent(this, SectionListActivity::class.java)
