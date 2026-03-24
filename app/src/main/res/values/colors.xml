@@ -7,4 +7,5 @@
     <color name="warning">#E6A23C</color>
     <color name="danger">#F56C6C</color>
     <color name="primary">#409EFF</color>
+    <color name="primary_10">#1A409EFF</color>
 </resources>

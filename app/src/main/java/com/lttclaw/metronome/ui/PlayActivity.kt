@@ -99,7 +99,7 @@ class PlayActivity : BaseVmDbActivity<PlayViewModel, ActivityPlayBinding>() {
     override fun initView(savedInstanceState: Bundle?) {
         val rvData = mViewModel.initSectionList()
         mViewModel.initBgMusic(this)
-        mDatabind.rvPlay.divider(R.drawable.divider_horizontal)
+        mDatabind.rvPlay
             .setup {
                 addType<Section>(R.layout.item_play_section)
             }.models = rvData
