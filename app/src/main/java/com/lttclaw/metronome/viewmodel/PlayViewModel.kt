@@ -6,7 +6,9 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.CountDownTimer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.core.os.bundleOf
 import androidx.databinding.ObservableBoolean
 import androidx.lifecycle.MutableLiveData
@@ -20,11 +22,12 @@ import com.lttclaw.metronome.network.apiService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import me.hgj.jetpackmvvm.base.viewmodel.BaseViewModel
 import me.hgj.jetpackmvvm.ext.request
 import me.hgj.jetpackmvvm.state.ResultState
 import java.util.Locale
-import androidx.core.net.toUri
+import kotlin.coroutines.resume
 
 const val SP_KEY = "listData"
 const val SP_BG_URI = "bgUri"
@@ -165,39 +168,40 @@ class PlayViewModel : BaseViewModel() {
         timer = object : CountDownTimer(current.repeatNum * current.length, current.length) {
             override fun onTick(millisUntilFinished: Long) {
                 curPlayingIndex.value = curPlayingIndex.value!! + 1
-                speak(curPlayingIndex.value.toString())
+                launch { speak(curPlayingIndex.value.toString()) }
             }
 
             override fun onFinish() {
                 val finishedIndex = curSectionIndex.value!!
                 curPlayingIndex.value = 0
-                speak("好棒哦，你完成了第${finishedIndex + 1}节")
-                
-                delayTimer?.cancel()
-                val delayMs = current.delay
-                delayTimer = object : CountDownTimer(delayMs, 1000) {
-                    override fun onTick(millisUntilFinished: Long) {
-                        if (millisUntilFinished <= 5000) {
-                            speak("做好准备，下一小节即将开始")
+                launch {
+                    speak("好棒哦，你完成了第${finishedIndex + 1}节")
+
+                    delayTimer?.cancel()
+                    val delayMs = current.delay
+                    delayTimer = object : CountDownTimer(delayMs, 1000) {
+                        override fun onTick(millisUntilFinished: Long) {
                         }
-                    }
-                    override fun onFinish() {
-                        inDelay = false
-                        if (finishedIndex >= playList.size - 1) {
-                            playing.set(false)
-                            curSectionIndex.value = 0
-                        } else {
-                            curSectionIndex.value = finishedIndex + 1
-                            val next = playList[curSectionIndex.value!!]
-                            if (delayMs <= 5000) {
-                                speak("做好准备，下一小节即将开始")
+                        override fun onFinish() {
+                            inDelay = false
+                            if (finishedIndex >= playList.size - 1) {
+                                playing.set(false)
+                                curSectionIndex.value = 0
+                            } else {
+                                curSectionIndex.value = finishedIndex + 1
+                                val next = playList[curSectionIndex.value!!]
+                                launch {
+                                    if (delayMs <= 5000) {
+                                        speak("做好准备，下一小节即将开始")
+                                    }
+                                    playSection(next, false)
+                                }
                             }
-                            playSection(next, false)
                         }
                     }
+                    delayTimer!!.start()
+                    inDelay = true
                 }
-                delayTimer!!.start()
-                inDelay = true
             }
         }
         
@@ -245,8 +249,10 @@ class PlayViewModel : BaseViewModel() {
                     curSectionIndex.value = nextIndex
                     playSection(playList[nextIndex], false)
                 } else {
-                    speak("好棒哦，你完成了全部小节")
-                    playing.set(false)
+                    launch {
+                        speak("好棒哦，你完成了全部小节")
+                        playing.set(false)
+                    }
                 }
             } else {
                 val playIndex = curPlayingIndex.value!!
@@ -263,8 +269,10 @@ class PlayViewModel : BaseViewModel() {
                         curSectionIndex.value = nextIndex
                         playSection(playList[nextIndex], false)
                     } else {
-                        speak("好棒哦，你完成了全部小节")
-                        playing.set(false)
+                        launch {
+                            speak("好棒哦，你完成了全部小节")
+                            playing.set(false)
+                        }
                     }
                 }
             }
@@ -287,10 +295,43 @@ class PlayViewModel : BaseViewModel() {
         request({ apiService.getVersion() }, versionResult)
     }
 
-    private fun speak(s: String) {
-        text2Speech?.also {
-            val bundle = bundleOf(TextToSpeech.Engine.KEY_PARAM_VOLUME to 1f)
-            it.speak(s, TextToSpeech.QUEUE_ADD, bundle, "noId")
+    private suspend fun speak(s: String) = suspendCancellableCoroutine<Unit> { continuation ->
+        val tts = text2Speech
+        if (tts == null) {
+            continuation.resume(Unit)
+            return@suspendCancellableCoroutine
+        }
+
+        val utteranceId = System.nanoTime().toString()
+
+        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {}
+
+            override fun onDone(id: String?) {
+                if (id == utteranceId) {
+                    continuation.resume(Unit)
+                }
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onError(id: String?) {
+                if (id == utteranceId) {
+                    continuation.resume(Unit)
+                }
+            }
+
+            override fun onError(id: String?, errorCode: Int) {
+                if (id == utteranceId) {
+                    continuation.resume(Unit)
+                }
+            }
+        })
+
+        val bundle = bundleOf(TextToSpeech.Engine.KEY_PARAM_VOLUME to 1f)
+        val result = tts.speak(s, TextToSpeech.QUEUE_ADD, bundle, utteranceId)
+
+        if (result != TextToSpeech.SUCCESS) {
+            continuation.resume(Unit)
         }
     }
 
