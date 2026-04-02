@@ -16,58 +16,120 @@ import androidx.lifecycle.viewModelScope
 import com.blankj.utilcode.util.GsonUtils
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.SPUtils
+import com.lttclaw.metronome.R
 import com.lttclaw.metronome.model.Section
+import com.lttclaw.metronome.model.SectionPlan
 import com.lttclaw.metronome.model.Version
 import com.lttclaw.metronome.network.apiService
+import com.lttclaw.metronome.util.PlanStorage
+import me.hgj.jetpackmvvm.base.viewmodel.BaseViewModel
+import me.hgj.jetpackmvvm.ext.request
+import me.hgj.jetpackmvvm.state.ResultState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import me.hgj.jetpackmvvm.base.viewmodel.BaseViewModel
-import me.hgj.jetpackmvvm.ext.request
-import me.hgj.jetpackmvvm.state.ResultState
 import java.util.Locale
+import java.util.UUID
 import kotlin.coroutines.resume
 
-const val SP_KEY = "listData"
 const val SP_BG_URI = "bgUri"
 const val SP_BG_NAME = "bgName"
 const val PAUSE = "暂停"
 const val RESUME = "继续"
 
+data class PlanCreationResult(
+    val planId: String? = null,
+    val sections: List<Section> = emptyList(),
+    val errorMessageRes: Int? = null
+) {
+    val success: Boolean
+        get() = planId != null && errorMessageRes == null
+}
+
 class PlayViewModel : BaseViewModel() {
     private val playList = mutableListOf<Section>()
+    private val plans = mutableListOf<SectionPlan>()
+    private var selectedPlanId = ""
     private var timer: CountDownTimer? = null
     private var delayTimer: CountDownTimer? = null
     private var prepJob: Job? = null
     private var mediaPlayer: MediaPlayer? = null
+
     val playing = ObservableBoolean(false)
     val curPlayingIndex = MutableLiveData(0)
     val curSectionIndex = MutableLiveData(0)
     val pauseBtnText = MutableLiveData(PAUSE)
     val curMusicName = MutableLiveData("无")
-    private var text2Speech: TextToSpeech? = null
+    val currentPlanName = MutableLiveData("")
 
+    private var text2Speech: TextToSpeech? = null
     private var inDelay = false
 
     val versionResult = MutableLiveData<ResultState<Version>>()
 
     fun initSectionList(): List<Section> {
-        val spInstance = SPUtils.getInstance()
-        val listData = spInstance.getString(SP_KEY, "")
-        return if (listData.isEmpty()) {
-            val list = mutableListOf<Section>()
-            val s1 = Section(11, 4000L, 7000L)
-            val s2 = Section(12, 5000L, 8000L)
-            val s3 = Section(12, 3000L, 1000)
-            list.add(s1)
-            list.add(s2)
-            list.add(s3)
-            spInstance.put(SP_KEY, GsonUtils.toJson(list))
-            list
-        } else {
-            GsonUtils.fromJson(listData, GsonUtils.getListType(Section::class.java))
+        return loadSelectedPlanSections()
+    }
+
+    fun reloadSavedList(): List<Section> {
+        return loadSelectedPlanSections()
+    }
+
+    fun getPlanNames(): List<String> {
+        if (plans.isEmpty()) {
+            refreshPlans()
         }
+        return plans.map { it.name }
+    }
+
+    fun getSelectedPlanPosition(): Int {
+        if (plans.isEmpty()) {
+            refreshPlans()
+        }
+        return plans.indexOfFirst { it.id == selectedPlanId }.takeIf { it >= 0 } ?: 0
+    }
+
+    fun getSelectedPlanId(): String {
+        if (selectedPlanId.isBlank()) {
+            refreshPlans()
+        }
+        return selectedPlanId
+    }
+
+    fun selectPlan(position: Int): List<Section> {
+        if (plans.isEmpty()) {
+            refreshPlans()
+        }
+        val targetPlan = plans.getOrNull(position) ?: refreshPlans()
+        PlanStorage.setSelectedPlanId(targetPlan.id)
+        return loadSelectedPlanSections()
+    }
+
+    fun createPlan(nameInput: String): PlanCreationResult {
+        val trimmedName = nameInput.trim()
+        if (trimmedName.isEmpty()) {
+            return PlanCreationResult(errorMessageRes = R.string.plan_name_required)
+        }
+
+        val selectedPlan = refreshPlans()
+        if (plans.any { it.name == trimmedName }) {
+            return PlanCreationResult(errorMessageRes = R.string.plan_name_duplicate)
+        }
+
+        val createdPlan = SectionPlan(
+            id = UUID.randomUUID().toString(),
+            name = trimmedName,
+            sections = PlanStorage.copySections(selectedPlan.sections)
+        )
+        plans.add(createdPlan)
+        PlanStorage.savePlans(plans, createdPlan.id)
+        selectedPlanId = createdPlan.id
+        currentPlanName.value = createdPlan.name
+        return PlanCreationResult(
+            planId = createdPlan.id,
+            sections = PlanStorage.copySections(createdPlan.sections)
+        )
     }
 
     fun initBgMusic(context: Context) {
@@ -87,10 +149,11 @@ class PlayViewModel : BaseViewModel() {
             if (status == TextToSpeech.SUCCESS) {
                 val languageCode = text2Speech?.setLanguage(Locale.CHINESE)
                 if (languageCode == null || languageCode == TextToSpeech.LANG_NOT_SUPPORTED
-                    || languageCode == TextToSpeech.LANG_MISSING_DATA) {
+                    || languageCode == TextToSpeech.LANG_MISSING_DATA
+                ) {
                     Toast.makeText(context, "不支持中文", Toast.LENGTH_SHORT).show()
                 } else {
-                    text2Speech!!.language = Locale.CHINA
+                    text2Speech?.language = Locale.CHINA
                 }
                 text2Speech?.let {
                     it.setPitch(1f)
@@ -104,7 +167,8 @@ class PlayViewModel : BaseViewModel() {
         try {
             if (mediaPlayer == null) {
                 mediaPlayer = MediaPlayer().apply {
-                    val audioAttribute = AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    val audioAttribute = AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                         .setUsage(AudioAttributes.USAGE_MEDIA)
                         .build()
                     setAudioAttributes(audioAttribute)
@@ -131,25 +195,9 @@ class PlayViewModel : BaseViewModel() {
         }
     }
 
-    private fun saveBgSetting(uri: Uri) {
-        val spInstance = SPUtils.getInstance()
-        spInstance.put(SP_BG_URI, uri.toString())
-        spInstance.put(SP_BG_NAME, curMusicName.value)
-    }
-
-    fun reloadSavedList(): List<Section> {
-        val spInstance = SPUtils.getInstance()
-        val listData = spInstance.getString(SP_KEY, "")
-        return if (listData.isEmpty()) {
-            emptyList()
-        } else {
-            GsonUtils.fromJson(listData, GsonUtils.getListType(Section::class.java))
-        }
-    }
-
     fun play(rvList: List<Section>, start: Int = 0) {
         playList.clear()
-        playList.addAll(rvList.slice(start..<rvList.size))
+        playList.addAll(rvList.slice(start until rvList.size))
         LogUtils.d("playList size:" + playList.size)
         if (playList.isNotEmpty()) {
             curSectionIndex.value = 0
@@ -162,59 +210,6 @@ class PlayViewModel : BaseViewModel() {
         }
     }
 
-    private fun playSection(current: Section, showPrepare: Boolean = false) {
-        LogUtils.d("repeat:" + current.repeatNum, "length:" + current.length, "delay:" + current.delay)
-        timer?.cancel()
-        timer = object : CountDownTimer(current.repeatNum * current.length, current.length) {
-            override fun onTick(millisUntilFinished: Long) {
-                curPlayingIndex.value = curPlayingIndex.value!! + 1
-                launch { speak(curPlayingIndex.value.toString()) }
-            }
-
-            override fun onFinish() {
-                val finishedIndex = curSectionIndex.value!!
-                curPlayingIndex.value = 0
-                launch {
-                    speak("好棒哦，你完成了第${finishedIndex + 1}节")
-
-                    delayTimer?.cancel()
-                    val delayMs = current.delay
-                    delayTimer = object : CountDownTimer(delayMs, 1000) {
-                        override fun onTick(millisUntilFinished: Long) {
-                        }
-                        override fun onFinish() {
-                            inDelay = false
-                            if (finishedIndex >= playList.size - 1) {
-                                playing.set(false)
-                                curSectionIndex.value = 0
-                            } else {
-                                curSectionIndex.value = finishedIndex + 1
-                                val next = playList[curSectionIndex.value!!]
-                                launch {
-                                    if (delayMs <= 5000) {
-                                        speak("做好准备，下一小节即将开始")
-                                    }
-                                    playSection(next, false)
-                                }
-                            }
-                        }
-                    }
-                    delayTimer!!.start()
-                    inDelay = true
-                }
-            }
-        }
-        
-        prepJob?.cancel()
-        prepJob = launch {
-            if (showPrepare) {
-                speak("做好准备，下一小节就要开始了")
-                delay(5000)
-            }
-            timer!!.start()
-        }
-    }
-
     fun stop() {
         playing.set(false)
         inDelay = false
@@ -224,7 +219,9 @@ class PlayViewModel : BaseViewModel() {
         curPlayingIndex.value = 0
         curSectionIndex.value = 0
         mediaPlayer?.let {
-            if (it.isPlaying) it.pause()
+            if (it.isPlaying) {
+                it.pause()
+            }
         }
     }
 
@@ -239,10 +236,9 @@ class PlayViewModel : BaseViewModel() {
             pauseBtnText.value = PAUSE
             mediaPlayer?.start()
 
-            val sectionIndex = curSectionIndex.value!!
+            val sectionIndex = curSectionIndex.value ?: 0
 
             if (inDelay) {
-                // Paused during inter-section delay; current section is already complete
                 inDelay = false
                 val nextIndex = sectionIndex + 1
                 if (nextIndex < playList.size) {
@@ -250,13 +246,13 @@ class PlayViewModel : BaseViewModel() {
                     playSection(playList[nextIndex], false)
                 } else {
                     launch {
-                        speak("好棒哦，你完成了全部小节")
+                        speak("好样的，你完成了全部小节")
                         playing.set(false)
                     }
                 }
             } else {
-                val playIndex = curPlayingIndex.value!!
-                val curSection = playList[sectionIndex]
+                val playIndex = curPlayingIndex.value ?: 0
+                val curSection = playList.getOrNull(sectionIndex) ?: return
                 val remainingNum = curSection.repeatNum - playIndex
 
                 if (remainingNum > 0) {
@@ -270,7 +266,7 @@ class PlayViewModel : BaseViewModel() {
                         playSection(playList[nextIndex], false)
                     } else {
                         launch {
-                            speak("好棒哦，你完成了全部小节")
+                            speak("好样的，你完成了全部小节")
                             playing.set(false)
                         }
                     }
@@ -293,6 +289,81 @@ class PlayViewModel : BaseViewModel() {
 
     fun checkVersion() {
         request({ apiService.getVersion() }, versionResult)
+    }
+
+    private fun refreshPlans(): SectionPlan {
+        plans.clear()
+        plans.addAll(PlanStorage.loadPlans())
+        val selectedId = PlanStorage.getSelectedPlanId()
+        val selectedPlan = plans.firstOrNull { it.id == selectedId } ?: plans.first()
+        selectedPlanId = selectedPlan.id
+        currentPlanName.value = selectedPlan.name
+        return selectedPlan
+    }
+
+    private fun loadSelectedPlanSections(): List<Section> {
+        val selectedPlan = refreshPlans()
+        return PlanStorage.copySections(selectedPlan.sections)
+    }
+
+    private fun playSection(current: Section, showPrepare: Boolean = false) {
+        LogUtils.d("repeat:" + current.repeatNum, "length:" + current.length, "delay:" + current.delay)
+        timer?.cancel()
+        timer = object : CountDownTimer(current.repeatNum * current.length, current.length) {
+            override fun onTick(millisUntilFinished: Long) {
+                curPlayingIndex.value = (curPlayingIndex.value ?: 0) + 1
+                launch { speak(curPlayingIndex.value.toString()) }
+            }
+
+            override fun onFinish() {
+                val finishedIndex = curSectionIndex.value ?: 0
+                curPlayingIndex.value = 0
+                launch {
+                    speak("好样的，你完成了第${finishedIndex + 1}小节")
+
+                    delayTimer?.cancel()
+                    val delayMs = current.delay
+                    delayTimer = object : CountDownTimer(delayMs, 1000) {
+                        override fun onTick(millisUntilFinished: Long) {
+                        }
+
+                        override fun onFinish() {
+                            inDelay = false
+                            if (finishedIndex >= playList.size - 1) {
+                                playing.set(false)
+                                curSectionIndex.value = 0
+                            } else {
+                                curSectionIndex.value = finishedIndex + 1
+                                val next = playList[curSectionIndex.value ?: 0]
+                                launch {
+                                    if (delayMs <= 5000) {
+                                        speak("做好准备，下一个小节即将开始")
+                                    }
+                                    playSection(next, false)
+                                }
+                            }
+                        }
+                    }
+                    delayTimer?.start()
+                    inDelay = true
+                }
+            }
+        }
+
+        prepJob?.cancel()
+        prepJob = launch {
+            if (showPrepare) {
+                speak("做好准备，下一个小节就要开始了")
+                delay(5000)
+            }
+            timer?.start()
+        }
+    }
+
+    private fun saveBgSetting(uri: Uri) {
+        val spInstance = SPUtils.getInstance()
+        spInstance.put(SP_BG_URI, uri.toString())
+        spInstance.put(SP_BG_NAME, curMusicName.value)
     }
 
     private suspend fun speak(s: String) = suspendCancellableCoroutine<Unit> { continuation ->

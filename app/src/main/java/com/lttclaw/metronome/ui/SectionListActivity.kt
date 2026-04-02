@@ -21,6 +21,10 @@ import com.lttclaw.metronome.viewmodel.SectionViewModel
 import me.hgj.jetpackmvvm.base.activity.BaseVmDbActivity
 
 class SectionListActivity : BaseVmDbActivity<SectionListViewModel, ActivitySectionListBinding>() {
+    companion object {
+        const val EXTRA_PLAN_ID = "extra_plan_id"
+    }
+
     override fun createObserver() {
 
     }
@@ -29,11 +33,12 @@ class SectionListActivity : BaseVmDbActivity<SectionListViewModel, ActivitySecti
     }
 
     override fun initView(savedInstanceState: Bundle?) {
+        val incomingPlanId = intent.getStringExtra(EXTRA_PLAN_ID)
         mDatabind.rvList.divider(R.drawable.divider_horizontal).setup {
             addType<Section>(R.layout.item_section_edit)
             R.id.btn_edit.onClick {
                 val pos = layoutPosition
-                val dialog = EditFragment(this.getModel()){
+                val dialog = EditFragment(this.getModel()) {
                     val listData = mDatabind.rvList.models as MutableList<Section>
                     listData[pos] = it
                     LogUtils.d(it.delay, it.length)
@@ -41,7 +46,9 @@ class SectionListActivity : BaseVmDbActivity<SectionListViewModel, ActivitySecti
                 }
                 dialog.show(supportFragmentManager, "edit")
             }
-        }.models = mViewModel.loadListData()
+        }.models = mViewModel.loadListData(incomingPlanId)
+
+        title = getString(R.string.edit_plan_title, mViewModel.getCurrentPlanName())
 
         mDatabind.btnSave.setOnClickListener {
             val dataList = mDatabind.rvList.models

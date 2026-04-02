@@ -3,5 +3,15 @@
     <string name="ok">确定</string>
     <string name="cancel">取消</string>
     <string name="cur_selection">当前选择</string>
-    <string name="batch_edit">改次数</string>
+    <string name="start_play">启动</string>
+    <string name="stop_play">停止</string>
+    <string name="background_music">背景音乐</string>
+    <string name="plan_label">方案</string>
+    <string name="add_plan">新增方案</string>
+    <string name="edit_plan">编辑方案</string>
+    <string name="add_plan_title">新增方案</string>
+    <string name="plan_name_hint">请输入方案名称</string>
+    <string name="plan_name_required">请输入方案名称</string>
+    <string name="plan_name_duplicate">方案名称已存在</string>
+    <string name="edit_plan_title">编辑方案：%1$s</string>
 </resources>
